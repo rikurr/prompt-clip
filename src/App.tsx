@@ -1,15 +1,28 @@
-import { ChangeEvent, useCallback, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import * as Form from "@radix-ui/react-form";
 import { invoke } from "@tauri-apps/api/tauri";
 import { Cross1Icon } from "@radix-ui/react-icons";
+import { TagLabel } from "./components/TagLabel";
+
+type PromptManager = {
+  prompts: Prompt[];
+};
+
+type Prompt = {
+  id?: number;
+  name: string;
+  content: string;
+  tags: string[];
+};
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tag, setTag] = useState("");
-  const [prompt, setPrompt] = useState([]);
+  const [promptManager, setPromptManager] = useState<PromptManager | null>(
+    null,
+  );
 
   const handleNameChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -31,15 +44,68 @@ function App() {
     setTag("");
   }, [tag, tags]);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      if (!promptManager) {
+        return;
+      }
+
+      console.log("submit");
+      const newPrompt: Prompt = {
+        name,
+        content,
+        tags,
+      };
+      const newPromptManager = {
+        prompts: [...promptManager.prompts, newPrompt],
+      };
+
+      console.log(newPrompt);
+      await invoke("save_prompt", { prompt: newPrompt });
+      setPromptManager(newPromptManager);
+      setName("");
+      setContent("");
+      setTags([]);
+    },
+    [name, content, tags, promptManager],
+  );
+
+  useEffect(() => {
+    (async () => {
+      // IPCでCoreプロセスのget_boardを呼ぶ
+      const prompt = await invoke<PromptManager>("get_prompt", {})
+        // 例外が発生したらその旨コンソールに表示する
+        .catch((err) => {
+          console.error(err);
+          return null;
+        });
+      console.debug(prompt);
+      // ボードのデータをかんばんボードにセットする
+      setPromptManager(prompt);
+    })();
+  }, []);
 
   return (
     <div className="container">
       <h1>Prompt Clip</h1>
-      <Form.Root className="FormRoot">
+      <ul className="PromptList">
+        <li className="Prompt PromptHeader">
+          <div className="PromptName">プロンプト名</div>
+          <div className="PromptContent">プロンプト</div>
+          <ul className="PromptTagList">
+            <li className="PromptTag">タグ</li>
+          </ul>
+        </li>
+        {promptManager?.prompts.map((prompt) => (
+          <li key={prompt.id} className="Prompt">
+            <div className="PromptName">{prompt.name}</div>
+            <div className="PromptContent">{prompt.content}</div>
+            <TagLabel tags={prompt.tags} />
+          </li>
+        ))}
+      </ul>
+      <Form.Root className="FormRoot" onSubmit={handleSubmit}>
         <Form.Field className="FormField" name="name">
           <div
             style={{
@@ -116,16 +182,7 @@ function App() {
               追加
             </button>
           </div>
-          <ul className="TagLabel">
-            {tags.map((tag, index) => (
-              <li key={index} className="Tag">
-                <span>{tag}</span>
-                <button type="button" className="TagDeleteButton">
-                  <Cross1Icon />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <TagLabel tags={tags} />
         </div>
         <Form.Submit asChild>
           <button className="Button">プロンプトを追加する</button>
