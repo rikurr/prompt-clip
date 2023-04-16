@@ -1,43 +1,34 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use database::Prompt;
+use database::{PromptRequest, PromptWithTags};
 use tauri::{Manager, State};
 pub(crate) mod database;
 
 // プロンプトの取得
-// #[tauri::command]
-// fn get_prompt() -> Result<Vec<Prompt>, String> {
-// let mut init_prompt1 = Prompt {
-//     id: "1".to_string(),
-//     name: "初期データ".to_string(),
-//     content: "初期データ".to_string(),
-//     tags: HashSet::new(),
-// };
-
-// init_prompt1.tags.insert("初期データタグ".to_string());
-
-// let mut init_prompt2 = Prompt {
-//     id: "2".to_string(),
-//     name: "初期データ2".to_string(),
-//     content: "初期データ2".to_string(),
-//     tags: HashSet::new(),
-// };
-
-// init_prompt2.tags.insert("初期データ2タグ".to_string());
-
-// let prompt_manager = PromptManager {
-//     prompts: vec![init_prompt1, init_prompt2],
-// };
-// Ok(())
-// }
+#[tauri::command]
+async fn fetch_prompts(
+    sqlite_pool: State<'_, sqlx::SqlitePool>,
+) -> Result<Vec<PromptWithTags>, String> {
+    println!("get_prompt");
+    let prompt = database::get_prompt_with_tag(&sqlite_pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(prompt)
+}
 
 // プロンプトの保存
 #[tauri::command]
-fn save_prompt(sqlite_pool: State<'_, sqlx::SqlitePool>, prompt: Prompt) -> Result<(), String> {
-    println!("save_prompt");
+async fn save_prompt(
+    sqlite_pool: State<'_, sqlx::SqlitePool>,
+    prompt: PromptRequest,
+) -> Result<(), String> {
     println!("{:?}", prompt);
-    dbg!(prompt);
+    database::insert_prompt(&sqlite_pool, prompt)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    println!("save_prompt");
     Ok(())
 }
 
@@ -57,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_file = database_dir.join(DATABASE_FILE);
 
     // データベースファイルが存在するかチェックする
-    let db_exists = std::fs::metadata(&database_file).is_ok();
+    let db_exists = std::fs::metadata(database_file).is_ok();
     // 存在しないなら、ファイルを格納するためのディレクトリを作成する
     if !db_exists {
         std::fs::create_dir(&database_dir)?;
@@ -79,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![save_prompt])
+        .invoke_handler(tauri::generate_handler![fetch_prompts, save_prompt])
         .setup(|app| {
             app.manage(sqlite_pool);
             Ok(())

@@ -85,7 +85,7 @@ pub struct TagRequest {
 }
 
 // プロンプトの取得
-pub(crate) async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
+async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
     // プロンプトを取得するSQL
     let sql = r#"
         SELECT
@@ -116,7 +116,7 @@ pub(crate) async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>
 }
 
 // プロンプトとタグの関連付けを取得
-pub(crate) async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
+async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
     // プロンプトとタグの関連付けを取得するSQL
     let sql = r#"
         SELECT
@@ -143,7 +143,7 @@ pub(crate) async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<Pro
 }
 
 // プロンプトの取得と関連したタグも取得する
-pub async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWithTags>> {
+pub(crate) async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWithTags>> {
     let prompts = get_prompt(sqlite_pool).await?;
     let prompt_tags = get_prompt_tag(sqlite_pool).await?;
 
