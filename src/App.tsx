@@ -3,6 +3,7 @@ import * as Form from "@radix-ui/react-form";
 import { invoke } from "@tauri-apps/api/tauri";
 import { TagLabel } from "./components/TagLabel";
 import { v4 as uuidv4 } from "uuid";
+import { CopyToClipboard } from "./components/CopyToClipboard";
 
 type PromptManager = {
   prompts: Prompt[];
@@ -120,14 +121,16 @@ function App() {
       <h1>Prompt Clip</h1>
       <ul className="PromptList">
         <li className="Prompt PromptHeader">
+          <div></div>
           <div className="PromptName">プロンプト名</div>
           <div className="PromptContent">プロンプト</div>
-          <ul className="PromptTagList">
-            <li className="PromptTag">タグ</li>
-          </ul>
+          <div className="PromptTagList">タグ</div>
         </li>
         {promptManager?.prompts.map((prompt) => (
           <li key={prompt.id} className="Prompt">
+            <div>
+              <CopyToClipboard copyText={prompt.content} />
+            </div>
             <div className="PromptName">{prompt.name}</div>
             <div className="PromptContent">{prompt.content}</div>
             <TagLabel tags={prompt.tags} />
