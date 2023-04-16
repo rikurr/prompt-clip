@@ -66,6 +66,7 @@ pub struct Tag {
 pub struct PromptTag {
     pub prompt_id: String,
     pub tag_id: String,
+    pub name: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -154,12 +155,15 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
     // プロンプトとタグの関連付けを取得するSQL
     let sql = r#"
         SELECT
-            prompt_id,
-            tag_id
+            prompts_tags.prompt_id,
+            prompts_tags.tag_id,
+            tags.name
         FROM
             prompts_tags
+        JOIN
+            tags ON prompts_tags.tag_id = tags.id
         ORDER BY
-            created_at
+            prompts_tags.created_at
     "#;
 
     // プロンプトとタグの関連付けを取得する
@@ -169,6 +173,7 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
         let prompt_tag = PromptTag {
             prompt_id: row.get("prompt_id"),
             tag_id: row.get("tag_id"),
+            name: row.get("name"),
         };
         prompt_tags.push(prompt_tag);
     }
@@ -188,7 +193,7 @@ async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWit
             if prompt.id == prompt_tag.prompt_id {
                 let tag = Tag {
                     id: prompt_tag.tag_id.clone(),
-                    name: "".to_string(),
+                    name: prompt_tag.name.clone(),
                 };
                 tags.push(tag);
             }
@@ -230,9 +235,8 @@ pub(crate) async fn insert_prompt(
         INSERT INTO prompts (
             id,
             name,
-            content,
+            content
         ) VALUES (
-            ?,
             ?,
             ?,
             ?

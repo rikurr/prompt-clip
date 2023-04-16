@@ -11,7 +11,12 @@ async fn fetch_prompts(sqlite_pool: State<'_, sqlx::SqlitePool>) -> Result<Promp
     println!("get_prompt");
     let prompt = database::get_prompt_manager(&sqlite_pool)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            println!("エラーが発生しました: {}", e);
+            e.to_string()
+        })?;
+
+    println!("何かある{:?}", prompt);
     Ok(prompt)
 }
 
@@ -24,7 +29,10 @@ async fn save_prompt(
     println!("{:?}", prompt);
     database::insert_prompt(&sqlite_pool, prompt)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            println!("エラーが発生しました: {}", e);
+            e.to_string()
+        })?;
 
     println!("save_prompt");
     Ok(())

@@ -57,13 +57,10 @@ function App() {
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      if (!promptManager) {
-        return;
-      }
 
       const newTags = tags.map((tag) => {
         // 既存のタグかどうかを確認する
-        const existTag = promptManager.tags.find((t) => t.name === tag.name);
+        const existTag = promptManager?.tags?.find((t) => t.name === tag.name);
 
         // 既存のタグならそのまま返す
         if (existTag) {
@@ -90,7 +87,7 @@ function App() {
       // IPCでCoreプロセスのsave_promptを呼ぶ
       await invoke("save_prompt", { prompt: newPrompt });
       // IPCでCoreプロセスのfetch_promptを呼ぶ
-      const prompt = await invoke<PromptManager>("fetch_prompt", {})
+      const prompt = await invoke<PromptManager>("fetch_prompts", {})
         // 例外が発生したらその旨コンソールに表示する
         .catch((err) => {
           console.error(err);
@@ -110,16 +107,18 @@ function App() {
   useEffect(() => {
     (async () => {
       // IPCでCoreプロセスのfetch_promptを呼ぶ
-      const prompt = await invoke<PromptManager>("fetch_prompt", {})
+      const prompt = await invoke<PromptManager>("fetch_prompts", {})
         // 例外が発生したらその旨コンソールに表示する
         .catch((err) => {
-          console.error(err);
+          console.error("エラーでした", err);
           return null;
         });
       console.debug(prompt);
       setPromptManager(prompt);
     })();
   }, []);
+
+  console.log(promptManager);
 
   return (
     <div className="container">
