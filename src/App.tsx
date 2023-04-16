@@ -74,15 +74,12 @@ function App() {
         };
       });
 
-      console.log("submit");
       const newPrompt: Prompt = {
         id: uuidv4(),
         name,
         content,
         tags: newTags,
       };
-
-      console.log(newPrompt);
 
       // IPCでCoreプロセスのsave_promptを呼ぶ
       await invoke("save_prompt", { prompt: newPrompt });
@@ -117,8 +114,6 @@ function App() {
       setPromptManager(prompt);
     })();
   }, []);
-
-  console.log(promptManager);
 
   return (
     <div className="container">

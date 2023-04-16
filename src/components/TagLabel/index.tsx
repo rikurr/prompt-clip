@@ -6,11 +6,6 @@ type Props = {
 };
 
 export const TagLabel = ({ tags }: Props) => {
-  console.log(tags);
-
-  tags.forEach((tag) => {
-    console.log("hey", tag);
-  });
   return (
     <ul className="TagLabel">
       {tags.map((tag) => (
