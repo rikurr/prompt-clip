@@ -40,6 +40,13 @@ pub(crate) async fn run_migrations(sqlite_pool: &SqlitePool) -> DbResult<()> {
 
 // プロンプト構造体
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PromptManager {
+    prompts: Vec<PromptWithTags>,
+    tags: Vec<Tag>,
+}
+
+// プロンプト構造体
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Prompt {
     pub id: String,
     pub name: String,
@@ -96,7 +103,7 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
         FROM
             prompt
         ORDER BY
-            id
+            created_at
     "#;
 
     // プロンプトを取得する
@@ -115,6 +122,33 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
     Ok(prompts)
 }
 
+// タグの取得
+async fn get_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
+    // タグを取得するSQL
+    let sql = r#"
+        SELECT
+            id,
+            name
+        FROM
+            tag
+        ORDER BY
+            created_at
+    "#;
+
+    // タグを取得する
+    let mut tags = Vec::new();
+    let mut rows = sqlx::query(sql).fetch(sqlite_pool);
+    while let Some(row) = rows.try_next().await? {
+        let tag = Tag {
+            id: row.get("id"),
+            name: row.get("name"),
+        };
+        tags.push(tag);
+    }
+
+    Ok(tags)
+}
+
 // プロンプトとタグの関連付けを取得
 async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
     // プロンプトとタグの関連付けを取得するSQL
@@ -125,7 +159,7 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
         FROM
             prompt_tag
         ORDER BY
-            prompt_id
+            created_at
     "#;
 
     // プロンプトとタグの関連付けを取得する
@@ -143,7 +177,7 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
 }
 
 // プロンプトの取得と関連したタグも取得する
-pub(crate) async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWithTags>> {
+async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWithTags>> {
     let prompts = get_prompt(sqlite_pool).await?;
     let prompt_tags = get_prompt_tag(sqlite_pool).await?;
 
@@ -170,6 +204,17 @@ pub(crate) async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Ve
     }
 
     Ok(prompt_with_tags)
+}
+
+pub(crate) async fn get_prompt_manager(sqlite_pool: &SqlitePool) -> DbResult<PromptManager> {
+    let prompts_with_tags = get_prompt_with_tag(sqlite_pool).await?;
+    let tags = get_tag(sqlite_pool).await?;
+
+    let prompt_manager = PromptManager {
+        prompts: prompts_with_tags,
+        tags,
+    };
+    Ok(prompt_manager)
 }
 
 // プロンプトとタグの作成

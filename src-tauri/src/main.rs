@@ -1,17 +1,15 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use database::{PromptRequest, PromptWithTags};
+use database::{PromptManager, PromptRequest};
 use tauri::{Manager, State};
 pub(crate) mod database;
 
 // プロンプトの取得
 #[tauri::command]
-async fn fetch_prompts(
-    sqlite_pool: State<'_, sqlx::SqlitePool>,
-) -> Result<Vec<PromptWithTags>, String> {
+async fn fetch_prompts(sqlite_pool: State<'_, sqlx::SqlitePool>) -> Result<PromptManager, String> {
     println!("get_prompt");
-    let prompt = database::get_prompt_with_tag(&sqlite_pool)
+    let prompt = database::get_prompt_manager(&sqlite_pool)
         .await
         .map_err(|e| e.to_string())?;
     Ok(prompt)
