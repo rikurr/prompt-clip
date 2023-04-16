@@ -1,24 +1,30 @@
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import * as Form from "@radix-ui/react-form";
 import { invoke } from "@tauri-apps/api/tauri";
-import { Cross1Icon } from "@radix-ui/react-icons";
 import { TagLabel } from "./components/TagLabel";
+import { v4 as uuidv4 } from "uuid";
 
 type PromptManager = {
   prompts: Prompt[];
+  tags: Tag[];
 };
 
 type Prompt = {
-  id?: number;
+  id: string;
   name: string;
   content: string;
-  tags: string[];
+  tags: Tag[];
+};
+
+export type Tag = {
+  id: string;
+  name: string;
 };
 
 function App() {
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [tag, setTag] = useState("");
   const [promptManager, setPromptManager] = useState<PromptManager | null>(
     null,
@@ -40,7 +46,11 @@ function App() {
   }, []);
 
   const addTag = useCallback(() => {
-    setTags([...tags, tag]);
+    const newTag = {
+      id: uuidv4(),
+      name: tag,
+    };
+    setTags([...tags, newTag]);
     setTag("");
   }, [tag, tags]);
 
@@ -51,19 +61,45 @@ function App() {
         return;
       }
 
+      const newTags = tags.map((tag) => {
+        // 既存のタグかどうかを確認する
+        const existTag = promptManager.tags.find((t) => t.name === tag.name);
+
+        // 既存のタグならそのまま返す
+        if (existTag) {
+          return existTag;
+        }
+
+        // 新規タグなら新規に作成する
+        return {
+          id: tag.id,
+          name: tag.name,
+        };
+      });
+
       console.log("submit");
       const newPrompt: Prompt = {
+        id: uuidv4(),
         name,
         content,
-        tags,
-      };
-      const newPromptManager = {
-        prompts: [...promptManager.prompts, newPrompt],
+        tags: newTags,
       };
 
       console.log(newPrompt);
+
+      // IPCでCoreプロセスのsave_promptを呼ぶ
       await invoke("save_prompt", { prompt: newPrompt });
-      setPromptManager(newPromptManager);
+      // IPCでCoreプロセスのfetch_promptを呼ぶ
+      const prompt = await invoke<PromptManager>("fetch_prompt", {})
+        // 例外が発生したらその旨コンソールに表示する
+        .catch((err) => {
+          console.error(err);
+          return null;
+        });
+      console.debug(prompt);
+      setPromptManager(prompt);
+
+      // フォームを初期化する
       setName("");
       setContent("");
       setTags([]);
@@ -73,15 +109,14 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      // IPCでCoreプロセスのget_boardを呼ぶ
-      const prompt = await invoke<PromptManager>("get_prompt", {})
+      // IPCでCoreプロセスのfetch_promptを呼ぶ
+      const prompt = await invoke<PromptManager>("fetch_prompt", {})
         // 例外が発生したらその旨コンソールに表示する
         .catch((err) => {
           console.error(err);
           return null;
         });
       console.debug(prompt);
-      // ボードのデータをかんばんボードにセットする
       setPromptManager(prompt);
     })();
   }, []);

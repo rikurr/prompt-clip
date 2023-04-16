@@ -1,15 +1,16 @@
 import { Cross1Icon } from "@radix-ui/react-icons";
+import { Tag } from "../../App";
 
 type Props = {
-  tags: string[];
+  tags: Tag[];
 };
 
 export const TagLabel = ({ tags }: Props) => {
   return (
     <ul className="TagLabel">
-      {tags.map((tag, index) => (
-        <li key={index} className="Tag">
-          <span>{tag}</span>
+      {tags.map((tag) => (
+        <li key={tag.id} className="Tag">
+          <span>{tag.name}</span>
           <button type="button" className="TagDeleteButton">
             <Cross1Icon />
           </button>

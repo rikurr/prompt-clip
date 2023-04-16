@@ -101,7 +101,7 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
             content,
             created_at
         FROM
-            prompt
+            prompts
         ORDER BY
             created_at
     "#;
@@ -123,14 +123,14 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
 }
 
 // タグの取得
-async fn get_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
+async fn get_tags(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
     // タグを取得するSQL
     let sql = r#"
         SELECT
             id,
             name
         FROM
-            tag
+            tags
         ORDER BY
             created_at
     "#;
@@ -157,7 +157,7 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
             prompt_id,
             tag_id
         FROM
-            prompt_tag
+            prompts_tags
         ORDER BY
             created_at
     "#;
@@ -208,7 +208,7 @@ async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWit
 
 pub(crate) async fn get_prompt_manager(sqlite_pool: &SqlitePool) -> DbResult<PromptManager> {
     let prompts_with_tags = get_prompt_with_tag(sqlite_pool).await?;
-    let tags = get_tag(sqlite_pool).await?;
+    let tags = get_tags(sqlite_pool).await?;
 
     let prompt_manager = PromptManager {
         prompts: prompts_with_tags,
@@ -227,7 +227,7 @@ pub(crate) async fn insert_prompt(
 
     // プロンプトのクエリ
     let sql = r#"
-        INSERT INTO prompt (
+        INSERT INTO prompts (
             id,
             name,
             content,
