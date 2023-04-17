@@ -15,10 +15,6 @@ export const CopyToClipboard = ({ copyText }: Props) => {
   const handleCopy = useCallback(async () => {
     setOpen(true);
     await writeText(copyText);
-
-    window.setTimeout(() => {
-      setOpen(false);
-    }, 5000);
   }, [copyText]);
 
   return (
@@ -37,9 +33,6 @@ export const CopyToClipboard = ({ copyText }: Props) => {
               <Toast.Title className="ToastTitle">
                 クリップボードにコピーしました
               </Toast.Title>
-              <Toast.Action className="ToastAction" asChild altText="閉じる">
-                <button className="Button small green">閉じる</button>
-              </Toast.Action>
             </Toast.Root>
             <Toast.Viewport className="ToastViewport" />
           </Toast.Provider>
