@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { TagLabel } from "./components/TagLabel";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "./components/CopyToClipboard";
+import { Dialog } from "./components/Dialog";
+import { Cross1Icon } from "@radix-ui/react-icons";
 
 type PromptManager = {
   prompts: Prompt[];
@@ -102,6 +104,20 @@ function App() {
     [name, content, tags, promptManager],
   );
 
+  const handlePromptDelete = useCallback(async (promptId: string) => {
+    // IPCでCoreプロセスのdelete_promptを呼ぶ
+    await invoke("delete_prompt", { promptId });
+    // IPCでCoreプロセスのfetch_promptを呼ぶ
+    const prompt = await invoke<PromptManager>("fetch_prompts", {})
+      // 例外が発生したらその旨コンソールに表示する
+      .catch((err) => {
+        console.error(err);
+        return null;
+      });
+    console.debug(prompt);
+    setPromptManager(prompt);
+  }, []);
+
   useEffect(() => {
     (async () => {
       // IPCでCoreプロセスのfetch_promptを呼ぶ
@@ -122,12 +138,25 @@ function App() {
       <ul className="PromptList">
         <li className="Prompt PromptHeader">
           <div></div>
+          <div></div>
           <div className="PromptName">プロンプト名</div>
           <div className="PromptContent">プロンプト</div>
           <div className="PromptTagList">タグ</div>
         </li>
         {promptManager?.prompts.map((prompt) => (
           <li key={prompt.id} className="Prompt">
+            <div>
+              <Dialog
+                triggerButton={
+                  <button type="button">
+                    <Cross1Icon />
+                  </button>
+                }
+                title="プロンプトを削除しますか？"
+                description="削除したプロンプトは復元できません。"
+                onAction={() => handlePromptDelete(prompt.id)}
+              />
+            </div>
             <div>
               <CopyToClipboard copyText={prompt.content} />
             </div>

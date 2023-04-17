@@ -2,7 +2,8 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import { ClipboardCopyIcon } from "@radix-ui/react-icons";
 import * as Toast from "@radix-ui/react-toast";
 import { writeText } from "@tauri-apps/api/clipboard";
-import { useCallback, useState, useRef, useEffect } from "react";
+import { useCallback, useState } from "react";
+import "./styles.css";
 
 type Props = {
   copyText: string;
