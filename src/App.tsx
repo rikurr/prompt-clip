@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { TagLabel } from "./components/TagLabel";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "./components/CopyToClipboard";
-import { Dialog } from "./components/Dialog";
+import { AlertDialog } from "./components/AlertDialog";
 import { Cross1Icon } from "@radix-ui/react-icons";
 
 type PromptManager = {
@@ -146,7 +146,7 @@ function App() {
         {promptManager?.prompts.map((prompt) => (
           <li key={prompt.id} className="Prompt">
             <div>
-              <Dialog
+              <AlertDialog
                 triggerButton={
                   <button type="button">
                     <Cross1Icon />
