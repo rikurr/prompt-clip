@@ -56,6 +56,24 @@ async fn delete_prompt(
     Ok(())
 }
 
+// プロンプトの更新
+#[tauri::command]
+async fn update_prompt(
+    sqlite_pool: State<'_, sqlx::SqlitePool>,
+    prompt: PromptRequest,
+) -> Result<(), String> {
+    println!("{:?}", prompt);
+    database::update_prompt_with_tags(&sqlite_pool, prompt)
+        .await
+        .map_err(|e| {
+            println!("エラーが発生しました: {}", e);
+            e.to_string()
+        })?;
+
+    println!("update_prompt");
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use tauri::async_runtime::block_on;
 
@@ -97,7 +115,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .invoke_handler(tauri::generate_handler![
             fetch_prompts,
             save_prompt,
-            delete_prompt
+            delete_prompt,
+            update_prompt
         ])
         .setup(|app| {
             app.manage(sqlite_pool);
