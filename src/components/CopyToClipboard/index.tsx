@@ -22,7 +22,7 @@ export const CopyToClipboard = ({ copyText }: Props) => {
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
           <Toast.Provider swipeDirection="right">
-            <button className="IconButton" type="button" onClick={handleCopy}>
+            <button type="button" onClick={handleCopy}>
               <ClipboardCopyIcon />
             </button>
             <Toast.Root

@@ -5,7 +5,8 @@ import { TagLabel } from "./components/TagLabel";
 import { v4 as uuidv4 } from "uuid";
 import { CopyToClipboard } from "./components/CopyToClipboard";
 import { AlertDialog } from "./components/AlertDialog";
-import { Cross1Icon } from "@radix-ui/react-icons";
+import { Cross1Icon, PlusIcon } from "@radix-ui/react-icons";
+import { Dialog } from "./components/Dialog";
 
 type PromptManager = {
   prompts: Prompt[];
@@ -97,12 +98,16 @@ function App() {
       setPromptManager(prompt);
 
       // フォームを初期化する
-      setName("");
-      setContent("");
-      setTags([]);
+      resetForm();
     },
     [name, content, tags, promptManager],
   );
+
+  const resetForm = () => {
+    setName("");
+    setContent("");
+    setTags([]);
+  };
 
   const handlePromptDelete = useCallback(async (promptId: string) => {
     // IPCでCoreプロセスのdelete_promptを呼ぶ
@@ -132,9 +137,106 @@ function App() {
     })();
   }, []);
 
+  const form = (
+    <Form.Root className="FormRoot" onSubmit={handleSubmit}>
+      <Form.Field className="FormField" name="name">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+          }}
+        >
+          <Form.Label className="FormLabel">名前</Form.Label>
+          <Form.Message className="FormMessage" match="valueMissing">
+            プロンプト名を入力してください
+          </Form.Message>
+        </div>
+        <Form.Control asChild>
+          <input
+            className="Input"
+            type="text"
+            required
+            value={name}
+            onChange={handleNameChange}
+          />
+        </Form.Control>
+      </Form.Field>
+      <Form.Field className="FormField" name="content">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+          }}
+        >
+          <Form.Label className="FormLabel">内容</Form.Label>
+          <Form.Message className="FormMessage" match="valueMissing">
+            プロンプトの内容を入力してください
+          </Form.Message>
+        </div>
+        <Form.Control asChild>
+          <textarea
+            className="Textarea"
+            required
+            value={content}
+            onChange={handleContentChange}
+          />
+        </Form.Control>
+      </Form.Field>
+      <div>
+        <div className="FormTag">
+          <Form.Field className="FormField" name="tags">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+              }}
+            >
+              <Form.Label className="FormLabel">タグ</Form.Label>
+            </div>
+            <Form.Control asChild>
+              <input
+                className="Input"
+                value={tag}
+                onChange={handleTagChange}
+                type="text"
+              />
+            </Form.Control>
+          </Form.Field>
+
+          <button
+            disabled={tag === ""}
+            type="button"
+            className="Button"
+            onClick={addTag}
+          >
+            追加
+          </button>
+        </div>
+        <TagLabel tags={tags} />
+      </div>
+      <Form.Submit asChild>
+        <button className="Button">プロンプトを追加する</button>
+      </Form.Submit>
+    </Form.Root>
+  );
+
   return (
     <div className="container">
       <h1>Prompt Clip</h1>
+      <Dialog
+        triggerButton={
+          <button className="">
+            <PlusIcon />
+          </button>
+        }
+        title="プロンプトを追加"
+        description="プロンプトを追加します。"
+        form={form}
+        onClose={resetForm}
+      />
       <ul className="PromptList">
         <li className="Prompt PromptHeader">
           <div></div>
@@ -166,89 +268,6 @@ function App() {
           </li>
         ))}
       </ul>
-      <Form.Root className="FormRoot" onSubmit={handleSubmit}>
-        <Form.Field className="FormField" name="name">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              justifyContent: "space-between",
-            }}
-          >
-            <Form.Label className="FormLabel">名前</Form.Label>
-            <Form.Message className="FormMessage" match="valueMissing">
-              プロンプト名を入力してください
-            </Form.Message>
-          </div>
-          <Form.Control asChild>
-            <input
-              className="Input"
-              type="text"
-              required
-              value={name}
-              onChange={handleNameChange}
-            />
-          </Form.Control>
-        </Form.Field>
-        <Form.Field className="FormField" name="content">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              justifyContent: "space-between",
-            }}
-          >
-            <Form.Label className="FormLabel">内容</Form.Label>
-            <Form.Message className="FormMessage" match="valueMissing">
-              プロンプトの内容を入力してください
-            </Form.Message>
-          </div>
-          <Form.Control asChild>
-            <textarea
-              className="Textarea"
-              required
-              value={content}
-              onChange={handleContentChange}
-            />
-          </Form.Control>
-        </Form.Field>
-        <div>
-          <div className="FormTag">
-            <Form.Field className="FormField" name="tags">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Form.Label className="FormLabel">タグ</Form.Label>
-              </div>
-              <Form.Control asChild>
-                <input
-                  className="Input"
-                  value={tag}
-                  onChange={handleTagChange}
-                  type="text"
-                />
-              </Form.Control>
-            </Form.Field>
-
-            <button
-              disabled={tag === ""}
-              type="button"
-              className="Button"
-              onClick={addTag}
-            >
-              追加
-            </button>
-          </div>
-          <TagLabel tags={tags} />
-        </div>
-        <Form.Submit asChild>
-          <button className="Button">プロンプトを追加する</button>
-        </Form.Submit>
-      </Form.Root>
     </div>
   );
 }
