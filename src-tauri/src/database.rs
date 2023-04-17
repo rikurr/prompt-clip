@@ -93,7 +93,7 @@ pub struct TagRequest {
 }
 
 // プロンプトの取得
-async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
+async fn get_prompts(tx: &mut Transaction<'_, Sqlite>) -> DbResult<Vec<Prompt>> {
     // プロンプトを取得するSQL
     let sql = r#"
         SELECT
@@ -109,7 +109,7 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
 
     // プロンプトを取得する
     let mut prompts = Vec::new();
-    let mut rows = sqlx::query(sql).fetch(sqlite_pool);
+    let mut rows = sqlx::query(sql).fetch(&mut *tx);
     while let Some(row) = rows.try_next().await? {
         let prompt = Prompt {
             id: row.get("id"),
@@ -124,7 +124,7 @@ async fn get_prompt(sqlite_pool: &SqlitePool) -> DbResult<Vec<Prompt>> {
 }
 
 // タグの取得
-async fn get_tags(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
+async fn get_tags(tx: &mut Transaction<'_, Sqlite>) -> DbResult<Vec<Tag>> {
     // タグを取得するSQL
     let sql = r#"
         SELECT
@@ -138,7 +138,7 @@ async fn get_tags(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
 
     // タグを取得する
     let mut tags = Vec::new();
-    let mut rows = sqlx::query(sql).fetch(sqlite_pool);
+    let mut rows = sqlx::query(sql).fetch(&mut *tx);
     while let Some(row) = rows.try_next().await? {
         let tag = Tag {
             id: row.get("id"),
@@ -151,7 +151,7 @@ async fn get_tags(sqlite_pool: &SqlitePool) -> DbResult<Vec<Tag>> {
 }
 
 // プロンプトとタグの関連付けを取得
-async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
+async fn get_prompt_tag(tx: &mut Transaction<'_, Sqlite>) -> DbResult<Vec<PromptTag>> {
     // プロンプトとタグの関連付けを取得するSQL
     let sql = r#"
         SELECT
@@ -168,7 +168,7 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
 
     // プロンプトとタグの関連付けを取得する
     let mut prompt_tags = Vec::new();
-    let mut rows = sqlx::query(sql).fetch(sqlite_pool);
+    let mut rows = sqlx::query(sql).fetch(&mut *tx);
     while let Some(row) = rows.try_next().await? {
         let prompt_tag = PromptTag {
             prompt_id: row.get("prompt_id"),
@@ -182,9 +182,9 @@ async fn get_prompt_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptTag>> {
 }
 
 // プロンプトの取得と関連したタグも取得する
-async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWithTags>> {
-    let prompts = get_prompt(sqlite_pool).await?;
-    let prompt_tags = get_prompt_tag(sqlite_pool).await?;
+async fn get_prompt_with_tag(tx: &mut Transaction<'_, Sqlite>) -> DbResult<Vec<PromptWithTags>> {
+    let prompts = get_prompts(tx).await?;
+    let prompt_tags = get_prompt_tag(tx).await?;
 
     let mut prompt_with_tags = Vec::new();
     for prompt in prompts {
@@ -212,13 +212,20 @@ async fn get_prompt_with_tag(sqlite_pool: &SqlitePool) -> DbResult<Vec<PromptWit
 }
 
 pub(crate) async fn get_prompt_manager(sqlite_pool: &SqlitePool) -> DbResult<PromptManager> {
-    let prompts_with_tags = get_prompt_with_tag(sqlite_pool).await?;
-    let tags = get_tags(sqlite_pool).await?;
+    // トランザクションの作成
+    let mut tx = sqlite_pool.begin().await?;
+
+    let prompts_with_tags = get_prompt_with_tag(&mut tx).await?;
+    let tags = get_tags(&mut tx).await?;
 
     let prompt_manager = PromptManager {
         prompts: prompts_with_tags,
         tags,
     };
+
+    // トランザクションをコミットする
+    tx.commit().await?;
+
     Ok(prompt_manager)
 }
 
@@ -228,7 +235,7 @@ pub(crate) async fn insert_prompt(
     prompt_request: PromptRequest,
 ) -> DbResult<()> {
     // トランザクションを開始する
-    let mut transaction = sqlite_pool.begin().await?;
+    let mut tx = sqlite_pool.begin().await?;
 
     // プロンプトのクエリ
     let sql = r#"
@@ -248,46 +255,17 @@ pub(crate) async fn insert_prompt(
         .bind(&prompt_request.id)
         .bind(&prompt_request.name)
         .bind(&prompt_request.content)
-        .execute(&mut transaction)
+        .execute(&mut tx)
         .await?;
 
     // プロンプトとタグの関連付けの登録
-    update_tags_and_associations(&mut transaction, &prompt_request.id, &prompt_request.tags)
-        .await?;
+    update_tags_and_associations(&mut tx, &prompt_request.id, &prompt_request.tags).await?;
 
     // トランザクションをコミットする
-    transaction.commit().await?;
+    tx.commit().await?;
 
     Ok(())
 }
-
-// // 新しいプロンプトとタグの関連付けを作成する関数です。
-// pub(crate) async fn insert_prompt_tag(
-//     sqlite_pool: &SqlitePool,
-//     prompt_request: PromptRequest,
-// ) -> DbResult<()> {
-//     // プロンプトとタグの関連付けの登録SQL
-//     let sql = r#"
-//         INSERT INTO prompt_tag (
-//             prompt_id,
-//             tag_id
-//         ) VALUES (
-//             ?,
-//             ?
-//         )
-//     "#;
-
-//     // プロンプトとタグの関連付けの登録
-//     for tag in &prompt_request.tags {
-//         sqlx::query(sql)
-//             .bind(prompt_request.id)
-//             .bind(tag.id)
-//             .execute(sqlite_pool)
-//             .await?;
-//     }
-
-//     Ok(())
-// }
 
 // タグの追加/更新と関連付けの更新を行う関数です。
 // 各タグについて、get_or_create_tag 関数を呼び出してタグIDを取得し、associate_tag_with_prompt 関数を呼び出してプロンプトとタグの関連付けを更新します。
@@ -344,9 +322,9 @@ async fn associate_tag_with_prompt(
     tag_id: &str,
 ) -> DbResult<()> {
     let sql = r#"
-      INSERT INTO prompts_tags (prompt_id, tag_id)
-      VALUES (?, ?)
-      ON CONFLICT (prompt_id, tag_id) DO NOTHING
+        INSERT INTO prompts_tags (prompt_id, tag_id)
+        VALUES (?, ?)
+        ON CONFLICT (prompt_id, tag_id) DO NOTHING
     "#;
 
     sqlx::query(sql)
@@ -355,5 +333,105 @@ async fn associate_tag_with_prompt(
         .execute(&mut *tx)
         .await?;
 
+    Ok(())
+}
+
+// プロンプトの更新
+pub(crate) async fn update_prompt_with_tags(
+    sqlite_pool: &SqlitePool,
+    prompt_request: PromptRequest,
+) -> DbResult<()> {
+    // トランザクションを開始する
+    let mut tx = sqlite_pool.begin().await?;
+
+    // プロンプトの更新
+    update_prompt(&mut tx, prompt_request.clone()).await?;
+
+    // 更新するプロンプトに関連するタグをクリア
+    clear_tags(&mut tx, &prompt_request.id).await?;
+
+    // プロンプトとタグの関連付けの登録
+    update_tags_and_associations(&mut tx, &prompt_request.id, &prompt_request.tags).await?;
+
+    // トランザクションをコミットする
+    tx.commit().await?;
+
+    Ok(())
+}
+
+// プロンプトの更新
+async fn update_prompt(
+    tx: &mut Transaction<'_, Sqlite>,
+    prompt_request: PromptRequest,
+) -> DbResult<()> {
+    // プロンプトのクエリ
+    let sql = r#"
+        UPDATE prompts
+        SET
+            name = ?,
+            content = ?
+        WHERE id = ?
+    "#;
+
+    // プロンプトの更新
+    sqlx::query(sql)
+        .bind(&prompt_request.name)
+        .bind(&prompt_request.content)
+        .bind(&prompt_request.id)
+        .execute(&mut *tx)
+        .await?;
+
+    Ok(())
+}
+
+// タグのクリア
+async fn clear_tags(tx: &mut Transaction<'_, Sqlite>, prompt_id: &str) -> DbResult<()> {
+    let sql = "DELETE FROM prompts_tags WHERE prompt_id = ?";
+
+    sqlx::query(sql).bind(prompt_id).execute(&mut *tx).await?;
+
+    Ok(())
+}
+
+// プロンプトの削除
+pub(crate) async fn delete_prompt(sqlite_pool: &SqlitePool, prompt_id: &str) -> DbResult<()> {
+    // トランザクションを開始する
+    let mut tx = sqlite_pool.begin().await?;
+
+    // プロンプトの削除
+    let query = "DELETE FROM prompts WHERE id = ?";
+    sqlx::query(query).bind(prompt_id).execute(&mut *tx).await?;
+
+    // タグ一覧を取得する
+    let tags = get_tags(&mut tx).await?;
+
+    // 使用していないタグの削除
+    for tag in tags {
+        let tag_id = tag.id;
+        delete_tag_if_orphan(&mut tx, &tag_id).await?;
+    }
+
+    // トランザクションをコミットする
+    tx.commit().await?;
+
+    Ok(())
+}
+
+// タグが紐づいているプロンプトの数をカウントする関数
+async fn count_tag_associations(tx: &mut Transaction<'_, Sqlite>, tag_id: &str) -> DbResult<i64> {
+    let sql = "SELECT COUNT(*) as count FROM prompts_tags WHERE tag_id = ?";
+    let row = sqlx::query(sql).bind(tag_id).fetch_one(&mut *tx).await?;
+    let count: i64 = row.get("count");
+
+    Ok(count)
+}
+
+// count_tag_associations関数を使って、紐づいているプロンプトが0の場合にのみタグを削除します。
+async fn delete_tag_if_orphan(tx: &mut Transaction<'_, Sqlite>, tag_id: &str) -> DbResult<()> {
+    let count = count_tag_associations(&mut *tx, tag_id).await?;
+    if count == 0 {
+        let query = "DELETE FROM tags WHERE id = ?";
+        sqlx::query(query).bind(tag_id).execute(&mut *tx).await?;
+    }
     Ok(())
 }
